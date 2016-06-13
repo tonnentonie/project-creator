@@ -52,8 +52,14 @@ task copyDependencies(type: Copy) {
 }
 
 
-test {
+test 
+{
     systemProperties 'property': 'value'
+    testLogging 
+    {
+     events"passed","skipped","failed","standardOut","standardError"
+    }
+    dependsOn "cleanTest" 
 }
 
 task wrapper(type: Wrapper) {
