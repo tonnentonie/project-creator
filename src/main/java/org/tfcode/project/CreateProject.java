@@ -1,7 +1,7 @@
 package org.tfcode.project;
-
 import java.io.File;
 import java.io.FileWriter;
+import java.util.jar.JarFile;
 
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
@@ -23,9 +23,10 @@ import org.slf4j.LoggerFactory;
  * </code>
  * </p>
  * 
- * @author me
+ * @author The Greatest
  *
  */
+@Command(name="create",description="Create a project")
 public class CreateProject implements ApplicationCommand {
 
     private Logger logger = LoggerFactory.getLogger(CreateProject.class);
@@ -38,6 +39,8 @@ public class CreateProject implements ApplicationCommand {
     protected String packageFolder   = "";
     protected String mainClassFull   = "";
 
+	private String testFolder;
+
     @Override
     public void run(String[] args) throws Exception {
         setParameters(args);
@@ -47,13 +50,28 @@ public class CreateProject implements ApplicationCommand {
         createAppCommand();
         createCommandParameters();
         createMainClass();
+        createCommandAnnotation();
         createHelloWorld();
         createHelloWorldParameters();
+        createHelloWorldTest();
         createGitIgnore();
         createLogbackXml();
+        createConfig();
+        
+        if (params.isWithWebserver()) {
+            createWebserver();
+        }
     }
+    
+    protected void createWebserver() throws Exception 
+    {
+        logger.info("Creating webserver");
+        JarFile jf = new JarFile(getClass().getProtectionDomain().getCodeSource().getLocation().toURI().getPath());
+        copyClassFromJar(jf,"web/WebServer.java",packageFolder);
+        jf.close();
 
-    protected void setPaths() throws Exception {
+    }
+	protected void setPaths() throws Exception {
         projectPath = params.getOutputFolder() + File.separator + params.getProjectName();
         logger.info("Creating " + projectPath + " (if not exists)");
         FileUtils.forceMkdir(new File(projectPath));
@@ -73,8 +91,11 @@ public class CreateProject implements ApplicationCommand {
         logger.info("Creating " + resourcesFolder + " (if not exists)");
         FileUtils.forceMkdir(new File(resourcesFolder));
         
-        String testFolder = projectPath + File.separator + "src" + File.separator + "test" +
+        testFolder = projectPath + File.separator + "src" + File.separator + "test" +
                 File.separator + "java";
+        logger.info("Creating " + testFolder + " (if not exists)");
+        FileUtils.forceMkdir(new File(testFolder));
+        testFolder = testFolder + File.separator + pckg;
         logger.info("Creating " + testFolder + " (if not exists)");
         FileUtils.forceMkdir(new File(testFolder));
         
@@ -84,7 +105,40 @@ public class CreateProject implements ApplicationCommand {
         FileUtils.forceMkdir(new File(testResourcesFolder));
   
         mainClassFull = params.getPackage() + "." + params.getMainClass();
+       
     }
+	
+	
+	
+	
+	
+	
+	
+	protected void createHelloWorldTest() throws Exception {
+        logger.info("Creating " + testFolder + File.separator + "HelloWorldTest.java");
+        FileWriter fw = new FileWriter(testFolder + File.separator + "HelloWorldTest.java");
+        fw.write(
+        		        "package " + params.getPackage() + ";\n" + 
+                        "\n" + 
+                        "import static org.junit.Assert.*;\n" + 
+                        "\n" + 
+                        "import org.junit.Test;\n" + 
+                        "\n" + 
+                        "public class HelloWorldTest {\n" + 
+                        "    @Test\n" + 
+                        "    public void canConstructHelloWorld() {\n" + 
+                        "        HelloWorld app = new HelloWorld();\n" + 
+                        "        System.out.println(\"Test ......................\");\n" + 
+                        "        assertEquals(app.getClass().toString(),HelloWorld.class.toString());\n" + 
+                        "    }\n" + 
+                        "}\n");
+        fw.close();
+	
+	
+	}
+	
+	
+	
     
     protected void createLogbackXml() throws Exception {
         logger.info("Creating " + resourcesFolder + File.separator + "logback.xml");
@@ -115,18 +169,50 @@ public class CreateProject implements ApplicationCommand {
     protected void createGitIgnore() throws Exception {
         logger.info("Creating " + projectPath + File.separator + ".gitignore");
         FileWriter fw = new FileWriter(projectPath + File.separator + ".gitignore");
-        fw.write(".classpath\n" + 
-                ".gradle/\n" + 
+        fw.write("/data\n" + 
+                "/data/*\n" + 
+                "/build\n" + 
+                "/build/*\n" + 
+                ".classpath\n" + 
                 ".project\n" + 
-                ".settings/\n" + 
-                "bin/\n" + 
-                "build.gradle\n" + 
-                "build/\n" + 
-                "src/\n" + 
-                "data/\n" + 
-                "libs/\n");
+                ".settings\n" + 
+                ".gradle\n" + 
+                "*.class\n" + 
+                "\n" + 
+                "# Mobile Tools for Java (J2ME)\n" + 
+                ".mtj.tmp/\n" + 
+                "\n" + 
+                "# Package Files #\n" + 
+                "*.jar\n" + 
+                "*.war\n" + 
+                "*.ear\n" + 
+                "\n" + 
+                "# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml\n" + 
+                "hs_err_pid*\n" + 
+                "/bin/");
         fw.close();
     }
+    
+    
+    protected void createCommandAnnotation() throws Exception {
+        logger.info("Creating " + packageFolder + File.separator + "Command.java");
+        FileWriter fw = new FileWriter(packageFolder + File.separator +  "Command.java");
+        fw.write("package " + params.getPackage() + ";\n" + 
+                "\n" + 
+                "import java.lang.annotation.Retention;\n" + 
+                "import java.lang.annotation.RetentionPolicy;\n" + 
+                "import java.lang.annotation.ElementType;\n" + 
+                "import java.lang.annotation.Target;\n" + 
+                "\n" + 
+                "@Retention(RetentionPolicy.RUNTIME)\n" + 
+                "@Target({ElementType.TYPE})\n" + 
+                "public @interface Command {\n" + 
+                "    String name() default \"-\";\n" + 
+                "    String description() default \"-\";\n" + 
+                "}");
+        fw.close();
+    }
+    
     
     protected void createHelloWorldParameters() throws Exception {
         logger.info("Creating " + packageFolder + File.separator + "HelloWorldParameters.java");
@@ -196,68 +282,109 @@ public class CreateProject implements ApplicationCommand {
         fw.close();
     }
     
+    
+    
     protected void createMainClass() throws Exception {
         logger.info("Creating " + packageFolder + File.separator + params.getMainClass() + ".java");
         FileWriter fw = new FileWriter(packageFolder + File.separator + params.getMainClass() + ".java");
         fw.write("package " + params.getPackage() + ";\n" + 
                 "\n" + 
                 "import java.util.Arrays;\n" + 
-                "\n" + 
+                "import java.util.HashMap;\n" + 
+                "import java.util.Map;\n" + 
+                
                 "import org.slf4j.Logger;\n" + 
                 "import org.slf4j.LoggerFactory;\n" + 
+                
+                "import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner;\n" +                
+                "\n" + 
                 "\n" + 
                 "public class " + params.getMainClass() + " {\n" + 
                 "    public static final String USAGE = \"java -jar (...).jar <command> <args> ...\";\n" + 
                 "\n" + 
                 "    private Logger logger = LoggerFactory.getLogger(" + params.getMainClass() + ".class);\n" + 
                 "\n" + 
-                "    public static enum COMMAND {\n" + 
-                "        hello_world(\"Hello world\", HelloWorld.class);\n" + 
+                "private Map<String,AppCommand> commands;\n" + 
+                "    \n" + 
+                "    private class AppCommand {\n" + 
+                "        String   name;\n" + 
+                "        String   description;\n" + 
+                "        Class<?> cmd;\n" + 
+                "    }" +
+                "\n" +
+                "    public " + params.getMainClass() + "() throws Exception {\n" +
+                "        findCommands();\n" +
+                "    }\n" + 
                 "\n" + 
-                "        String description = \"\";\n" + 
-                "        Class<?> cmd = null;\n" + 
-                "\n" + 
-                "        private COMMAND(String desc, Class<?> cmd) {\n" + 
-                "            description = desc;\n" + 
-                "            this.cmd = cmd;\n" + 
+                "    @SuppressWarnings(\"unchecked\")\n" + 
+                "    private void findCommands() throws Exception {\n" + 
+                "        FastClasspathScanner scanner = new FastClasspathScanner(\"" + params.getPackage() + "\");\n" + 
+                "        scanner.scan();\n" + 
+                "        Command    annotation;\n" + 
+                "        boolean    isCommand;\n" + 
+                "        AppCommand cmd;\n" + 
+                "        commands = new HashMap<>();\n" + 
+                "        for (String cl : scanner.getNamesOfAllClasses()) {\n" + 
+                "            //logger.info(cl);\n" + 
+                "            Class c = Class.forName(cl);\n" + 
+                "            if (c.getAnnotation(Command.class) != null) {\n" + 
+                "                isCommand = false;\n" + 
+                "                for (Class ic : Arrays.asList(c.getInterfaces())) {\n" + 
+                "                    if (ic.getName().equals(\"" + params.getPackage() + ".ApplicationCommand\")) {\n" + 
+                "                        logger.info(ic.toString());\n" + 
+                "                        isCommand = true;\n" + 
+                "                    }\n" + 
+                "                }\n" + 
+                "                if (!isCommand) continue;\n" + 
+                "                annotation = (Command)c.getAnnotation(Command.class);\n" + 
+                "                if (commands.containsKey(annotation.name())) {\n" + 
+                "                    throw new UnsupportedOperationException(\"Command name \" +\n" + 
+                "                              annotation.name() +\n" + 
+                "                              \" already exists\");\n" + 
+                "                }\n" + 
+                "                cmd = new AppCommand();\n" + 
+                "                cmd.name        = annotation.name();\n" + 
+                "                cmd.description = annotation.description();\n" + 
+                "                cmd.cmd         = c;\n" + 
+                "                commands.put(cmd.name, cmd);\n" + 
+                "                logger.info(annotation.name());\n" + 
+                "                logger.info(annotation.description());\n" + 
+                "                \n" + 
+                "            }\n" + 
                 "        }\n" + 
-                "    }\n" + 
-                "\n" + 
-                "    public " + params.getMainClass() + "() {\n" + 
-                "    }\n" + 
-                "\n" + 
-                "    public static void printHelp() {\n" + 
+                "    }\n" +
+                "\n" +
+                "    public void printHelp() {\n" + 
                 "        System.out.println(\"\\nUsage: \" + USAGE + \"\\n\\nAvailable commands:\\n\");\n" + 
-                "\n" + 
-                "        for (COMMAND cmd : COMMAND.values()) {\n" + 
-                "            System.out.println(cmd.toString() + \"  -  \" + cmd.description);\n" + 
+                "        \n" + 
+                "        for (String cmd : commands.keySet()) {\n" + 
+                "            System.out.println(cmd + \"  -  \" + commands.get(cmd).description);\n" + 
                 "        }\n" + 
-                "\n" + 
+                "        \n" + 
                 "        System.out.println(\"\\nFor more info about each command try (java -jar ...) COMMAND -h\\n\");\n" + 
                 "        System.out.println(\"\\n---------------------------\\n\\n\");\n" + 
-                "    }\n" + 
+                "    }" +
                 "\n" + 
                 "    public static void main(String[] args) throws Exception {\n" + 
+                "        " + params.getMainClass() + " app = new " + params.getMainClass() + "();\n" + 
                 "        if (args.length < 1) {\n" + 
-                "            printHelp();\n" + 
+                "            app.printHelp();\n" + 
                 "            return;\n" + 
                 "        }\n" + 
-                "        " + params.getMainClass() + " app = new " + params.getMainClass() + "();\n" + 
-                "\n" + 
+                "        \n" + 
                 "        String cmd = args[0];\n" + 
                 "        String[] cargs = (args.length > 1) ? Arrays.copyOfRange(args, 1, args.length) : new String[] {};\n" + 
-                "        COMMAND com = null;\n" + 
-                "\n" + 
-                "        try {\n" + 
-                "            com = COMMAND.valueOf(cmd);\n" + 
-                "        } catch (Exception e) {\n" + 
-                "            throw e;\n" + 
-                "        }\n" + 
-                "\n" + 
+                "        AppCommand com = app.commands.get(cmd);\n" + 
+                "        \n" + 
+                "        if (com == null) {\n" + 
+                "            app.printHelp();\n" + 
+                "            throw new IllegalArgumentException(\"Unknown command \" + cmd);\n" + 
+                "        }\n" +
+                "        \n" +
                 "        app.logger.info(\"Running command \" + cmd);\n" + 
                 "        ((ApplicationCommand) com.cmd.newInstance()).run(cargs);\n" + 
-                "    }\n" + 
-                "}\n");
+                "    }\n" +                                                                                                                                               
+        		"}\n");
         fw.close();
     }
     
@@ -307,7 +434,20 @@ public class CreateProject implements ApplicationCommand {
                 );
         fw.close();
     }
-    
+    protected void createConfig () throws Exception
+    {
+    	logger.info(params.getOutputFolder() + File.separator + "Config.JSON");
+    	FileWriter fw = new FileWriter(params.getOutputFolder() + File.separator + "Config.JSON");
+        fw.write("{\n" + 
+        		" \"project_name\": \"Testing\",\n" + 
+        		" \"out_folder\":   \"data\",\n" + 
+        		" \"main_class\":   \"MainApp\",\n" + 
+        		" \"package\":      \"data\"\n" + 
+        		"}\n" + 
+        		""
+        		);
+        fw.close();	
+    }
     protected void createGradleScript() throws Exception {
         FileWriter fw = new FileWriter(projectPath + File.separator + "build.gradle");
         fw.write("apply plugin: 'java'\n" + 
@@ -346,6 +486,7 @@ public class CreateProject implements ApplicationCommand {
                 "            'ch.qos.logback:logback-classic:1.1.3',\n" + 
                 "            'io.vertx:vertx-core:3.2.0',\n" + 
                 "            'io.vertx:vertx-web:3.2.0'\n" + 
+                "            'io.github.lukehutch:fast-classpath-scanner:1.9.18'\n"+
                 "    testCompile group: 'junit', name: 'junit', version: '4.+'\n" + 
                 "}\n" + 
                 "\n" + 
@@ -366,8 +507,12 @@ public class CreateProject implements ApplicationCommand {
                 "\n" + 
                 "test {\n" + 
                 "    systemProperties 'property': 'value'\n" + 
+                "    testLogging {\n" + 
+                "        events \"passed\", \"skipped\", \"failed\", \"standardOut\", \"standardError\"\n" + 
+                "    }\n" + 
+                "    dependsOn \"cleanTest\"\n" + 
                 "}\n" + 
-                "\n" + 
+                "\n" +
                 "task wrapper(type: Wrapper) {\n" + 
                 "    gradleVersion = '2.10'\n" + 
                 "}\n" + 
@@ -382,8 +527,8 @@ public class CreateProject implements ApplicationCommand {
                 "}\n" + 
                 "*/");
         fw.close();
-    }
-
+    }    
+                     
     public void setParameters(String[] args) throws Exception {
         setParameters(new CreateProjectParameters(args));
     }
@@ -392,3 +537,4 @@ public class CreateProject implements ApplicationCommand {
         this.params = params;
     }
 }
+

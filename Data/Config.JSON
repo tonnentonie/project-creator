@@ -1,0 +1,6 @@
+{
+ "project_name": "Test_2",
+ "out_folder":   "data2",
+ "main_class":   "mainApp",
+ "package":      "org.template"
+}

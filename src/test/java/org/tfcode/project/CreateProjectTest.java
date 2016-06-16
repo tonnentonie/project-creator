@@ -12,6 +12,4 @@ public class CreateProjectTest
   System.err.println("Test................Fail!");
   assertEquals(app.getClass().toString(),CreateProject.class.toString());
  }
- 
- 
 }
